@@ -96,6 +96,5 @@ public class TestForm {
         Assertions.assertEquals("stitch.jpg", data.get("Picture"));
         Assertions.assertEquals(address, data.get("Address"));
         Assertions.assertEquals(state + " " + city, data.get("State and City"));
-        sleep(4000);
     }
 }
