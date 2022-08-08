@@ -1,9 +1,10 @@
 import com.codeborne.selenide.*;
 import com.github.javafaker.Faker;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.assertj.core.api.SoftAssertions;
+import org.junit.jupiter.api.*;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.Keys;
+import org.opentest4j.AssertionFailedError;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -16,39 +17,62 @@ import static com.codeborne.selenide.Selectors.byText;
 import static com.codeborne.selenide.Selenide.*;
 
 public class TestForm {
-    @Test
-    public void successfulFillForm() {
+    private SoftAssertions softAssertions;
+    Random random = new Random();
+    String firstName;
+    String lastName;
+    String email;
+    String gender;
+    String number;
+    String hobby1;
+    String hobby2;
+    Date birthday;
+    String year;
+    String month;
+    String day;
+    String address;
+    String state;
+    String city;
+    @BeforeEach
+    public void setUp() {
         Configuration.baseUrl = "https://demoqa.com";
-
+        softAssertions = new SoftAssertions();
         // generate data for inputs
-        Random random = new Random();
         String[] locale = {"bg", "ca", "ca-CAT", "da-DK", "de", "de-AT", "de-CH", "en", "en-AU", "en-au-ocker",
                 "en-BORK", "en-CA", "en-GB", "en-IND", "en-MS", "en-NEP", "en-NG", "en-NZ", "en-PAK", "en-SG",
                 "en-UG", "en-US", "en-ZA", "es", "es-MX", "fa", "fi-FI", "fr", "he", "hu", "in-ID", "it", "ja",
                 "ko", "nb-NO", "nl", "pl", "pt", "pt-BR", "ru", "sk", "sv", "sv-SE", "tr", "uk", "vi", "zh-CN", "zh-TW"};
         Faker faker = new Faker(new Locale(locale[random.nextInt(locale.length)]));
         Faker fakerEn = new Faker(new Locale("en-US"));
-        String firstName = faker.name().firstName();
-        String lastName = faker.name().lastName();
-        String email = fakerEn.internet().emailAddress();
-        String gender = List.of("Male", "Female", "Other").get(random.nextInt(3));
-        String number = faker.phoneNumber().subscriberNumber(10);
+        firstName = faker.name().firstName();
+        lastName = faker.name().lastName();
+        email = fakerEn.internet().emailAddress();
+        gender = List.of("Male", "Female", "Other").get(random.nextInt(3));
+        number = faker.phoneNumber().subscriberNumber(10);
         List<String> hobbies = List.of("Sports", "Reading", "Music");
-        String hobby1 = hobbies.get(random.nextInt(3));
+        hobby1 = hobbies.get(random.nextInt(3));
         hobbies = hobbies.stream().filter(e -> !e.equals(hobby1)).collect(Collectors.toList());
-        String hobby2 = hobbies.get(random.nextInt(2));
-        Date birthday = faker.date().birthday();
-        String year = String.valueOf(1900 + birthday.getYear());
-        String month = Month.of(birthday.getMonth() + 1).getDisplayName(TextStyle.FULL, Locale.ENGLISH);
-        String day = String.valueOf(birthday.getDate());
-        String address = faker.address().fullAddress();
-        String state = List.of("NCR", "Uttar Pradesh", "Haryana", "Rajasthan").get(random.nextInt(5));
+        hobby2 = hobbies.get(random.nextInt(2));
+        birthday = faker.date().birthday();
+        year = String.valueOf(1900 + birthday.getYear());
+        month = Month.of(birthday.getMonth() + 1).getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+        day = String.valueOf(birthday.getDate());
+        address = faker.address().fullAddress();
+        state = List.of("NCR", "Uttar Pradesh", "Haryana", "Rajasthan").get(random.nextInt(4));
         List<String> cites = Map.of("NCR", List.of("Delhi", "Gurgaon", "Noida"),
                 "Uttar Pradesh", List.of("Agra", "Lucknow", "Merrut"),
-                        "Haryana", List.of("Karnal", "Panipat"),
+                "Haryana", List.of("Karnal", "Panipat"),
                 "Rajasthan", List.of("Jaipur", "Jaiselmer")).get(state);
-        String city = cites.get(random.nextInt(cites.size()));
+        city = cites.get(random.nextInt(cites.size()));
+    }
 
+    @AfterEach
+    public void tearDown() {
+        softAssertions.assertAll();
+    }
+
+    @Test
+    public void successfulFillForm() {
         // open page and fill form
         open("/automation-practice-form");
         $("#firstName").sendKeys(firstName);
@@ -59,11 +83,16 @@ public class TestForm {
         $("#userNumber").sendKeys(Keys.PAGE_DOWN);
         $("#userNumber").sendKeys(number);
         // select date in calendar
-        $("#dateOfBirthInput").doubleClick();
+        $("#dateOfBirthInput").click(ClickOptions.usingJavaScript());
         $("[class*='year-select']").selectOption(year);
         $("[class*='month-select']").selectOption(month);
         $x(String.format(".//div[contains(@class, 'datepicker__day') and contains(text(), %s)]", day)).click();
-        ElementsCollection temp = $$("#hobbiesWrapper .custom-checkbox");
+        $("#subjectsInput").click(ClickOptions.usingJavaScript());
+        $("#subjectsInput").setValue("a");
+        ElementsCollection temp = $$("[class*=subjects-auto-complete__option]");
+        String subject = temp.get(random.nextInt(temp.size())).getText();
+        temp.findBy(Condition.text(subject)).click();
+        temp = $$("#hobbiesWrapper .custom-checkbox");
         temp.findBy(Condition.text(hobby1)).click();
         temp.findBy(Condition.text(hobby2)).click();
         $("#currentAddress").sendKeys(address);
@@ -87,14 +116,16 @@ public class TestForm {
         }
 
         // check data: inserted information and from notification window ones
-        Assertions.assertEquals(firstName + " " + lastName, data.get("Student Name"));
-        Assertions.assertEquals(email, data.get("Student Email"));
-        Assertions.assertEquals(gender, data.get("Gender"));
-        Assertions.assertEquals(number, data.get("Mobile"));
-        Assertions.assertEquals(new SimpleDateFormat("dd MMMM,yyyy", Locale.ENGLISH).format(birthday), data.get("Date of Birth"));
-        Assertions.assertEquals(hobby1 + ", " + hobby2, data.get("Hobbies"));
-        Assertions.assertEquals("stitch.jpg", data.get("Picture"));
-        Assertions.assertEquals(address, data.get("Address"));
-        Assertions.assertEquals(state + " " + city, data.get("State and City"));
+        softAssertions.assertThat((firstName + " " + lastName).equals(data.get("Student Name")));
+        softAssertions.assertThat(email.equals(data.get("Student Email")));
+        softAssertions.assertThat(gender.equals(data.get("Gender")));
+        softAssertions.assertThat(number.equals(data.get("Mobile")));
+        softAssertions.assertThat(new SimpleDateFormat("dd MMMM,yyyy", Locale.ENGLISH).format(birthday)
+                .equals(data.get("Date of Birth")));
+        softAssertions.assertThat(subject.equals(data.get("Subject")));
+        softAssertions.assertThat((hobby1 + ", " + hobby2).equals(data.get("Hobbies")));
+        softAssertions.assertThat("stitch.jpg".equals(data.get("Picture")));
+        softAssertions.assertThat(address.equals(data.get("Address")));
+        softAssertions.assertThat((state + " " + city).equals(data.get("State and City")));
     }
 }
