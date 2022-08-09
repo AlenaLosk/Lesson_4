@@ -1,18 +1,15 @@
 import com.codeborne.selenide.*;
+import com.codeborne.selenide.selector.ByText;
 import com.github.javafaker.Faker;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.*;
-import org.openqa.selenium.Dimension;
-import org.openqa.selenium.Keys;
-import org.opentest4j.AssertionFailedError;
-
+import org.openqa.selenium.*;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.time.Month;
 import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
-
 import static com.codeborne.selenide.Selectors.byText;
 import static com.codeborne.selenide.Selenide.*;
 
@@ -86,7 +83,11 @@ public class TestForm {
         $("#dateOfBirthInput").click(ClickOptions.usingJavaScript());
         $("[class*='year-select']").selectOption(year);
         $("[class*='month-select']").selectOption(month);
-        $x(String.format(".//div[contains(@class, 'datepicker__day') and contains(text(), %s)]", day)).click();
+        if (day.compareTo("15") < 0) {
+            $$(byText(day)).get(1).click();
+        } else {
+            $$(byText(day)).get(0).click();
+        }
         $("#subjectsInput").click(ClickOptions.usingJavaScript());
         $("#subjectsInput").setValue("a");
         ElementsCollection temp = $$("[class*=subjects-auto-complete__option]");
@@ -109,7 +110,7 @@ public class TestForm {
 
         // collect data from notification window
         List<String> list = new ArrayList<>();
-        $$("[class='modal-body'] td").asFixedIterable().forEach(e -> list.add(e.getText()));
+        $$(".table-responsive td").asFixedIterable().forEach(e -> list.add(e.getText()));
         HashMap<String, String> data = new HashMap<>();
         for (int i = 0; i < 20; i += 2) {
             data.put(list.get(i), list.get(i + 1));
