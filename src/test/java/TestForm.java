@@ -16,23 +16,11 @@ import static com.codeborne.selenide.Selenide.*;
 public class TestForm {
     private SoftAssertions softAssertions;
     Random random = new Random();
-    String firstName;
-    String lastName;
-    String email;
-    String gender;
-    String number;
-    String hobby1;
-    String hobby2;
+    String firstName, lastName, email, gender, number, hobby1, hobby2, year, month, day, address, state, city;
     Date birthday;
-    String year;
-    String month;
-    String day;
-    String address;
-    String state;
-    String city;
+
     @BeforeEach
-    public void setUp() {
-        Configuration.baseUrl = "https://demoqa.com";
+    public void setUpEach() {
         softAssertions = new SoftAssertions();
         // generate data for inputs
         String[] locale = {"bg", "ca", "ca-CAT", "da-DK", "de", "de-AT", "de-CH", "en", "en-AU", "en-au-ocker",
@@ -63,44 +51,60 @@ public class TestForm {
         city = cites.get(random.nextInt(cites.size()));
     }
 
+    @BeforeAll
+    public static void setUp() {
+        Configuration.baseUrl = "https://demoqa.com";
+    }
+
     @AfterEach
-    public void tearDown() {
+    public void tearDownEach() {
         softAssertions.assertAll();
     }
 
     @Test
-    public void successfulFillForm() {
-        // open page and fill form
+    public void fillFormTest() {
+        // open page and check header form
         open("/automation-practice-form");
-        $("#firstName").sendKeys(firstName);
-        $("#lastName").sendKeys(lastName);
-        $("#userEmail").sendKeys(email);
+        $(".practice-form-wrapper").shouldHave(Condition.text("Student Registration Form"));
+
+        // close advertising footer
+        executeJavaScript("$('footer').remove()");
+        executeJavaScript("$('#fixedban').remove()");
+
+        // fill form
+        $("#firstName").setValue(firstName);
+        $("#lastName").setValue(lastName);
+        $("#userEmail").setValue(email);
         $("#genterWrapper").$(byText(gender)).click();
+
         // scroll page down
-        $("#userNumber").sendKeys(Keys.PAGE_DOWN);
-        $("#userNumber").sendKeys(number);
+        $("#userNumber").setValue(Keys.PAGE_DOWN);
+        $("#userNumber").setValue(number);
+
         // select date in calendar
         $("#dateOfBirthInput").click(ClickOptions.usingJavaScript());
         $("[class*='year-select']").selectOption(year);
         $("[class*='month-select']").selectOption(month);
-        if (day.compareTo("15") < 0) {
-            $$(byText(day)).get(1).click();
-        } else {
-            $$(byText(day)).get(0).click();
-        }
+        $(String.format("[class*='day--%s']:not([class*='outside-month'])", String.format("%03d", Integer.parseInt(day)))).click();
+
+        // select subject
         $("#subjectsInput").click(ClickOptions.usingJavaScript());
         $("#subjectsInput").setValue("a");
         ElementsCollection temp = $$("[class*=subjects-auto-complete__option]");
         String subject = temp.get(random.nextInt(temp.size())).getText();
         temp.findBy(Condition.text(subject)).click();
+
+        // select hobbies
         temp = $$("#hobbiesWrapper .custom-checkbox");
         temp.findBy(Condition.text(hobby1)).click();
         temp.findBy(Condition.text(hobby2)).click();
-        $("#currentAddress").sendKeys(address);
-        $("#uploadPicture").uploadFile(new File("src/test/resources/stitch.jpg"));
 
-        // resize page window due to see submit button (it is hidden by contextual advertising)
-        webdriver().driver().getWebDriver().manage().window().setSize(new Dimension(700, 600));
+        // fill address and upload picture
+        $("#currentAddress").setValue(address);
+        $("#uploadPicture").uploadFile(new File("src/test/resources/stitch.jpg"));
+        //$("#uploadPicture").uploadFromClasspath("stitch.jpg"); - доп. вариант загрузки из папки resources
+
+        // final actions
         executeJavaScript("window.scrollTo(0, document.body.scrollHeight)");
         $("#state").click();
         $(byText(state)).click();
@@ -108,25 +112,21 @@ public class TestForm {
         $(byText(city)).click();
         $("#submit").click();
 
-        // collect data from notification window
-        List<String> list = new ArrayList<>();
-        $$(".table-responsive td").asFixedIterable().forEach(e -> list.add(e.getText()));
-        HashMap<String, String> data = new HashMap<>();
-        for (int i = 0; i < 20; i += 2) {
-            data.put(list.get(i), list.get(i + 1));
-        }
-
         // check data: inserted information and from notification window ones
-        softAssertions.assertThat((firstName + " " + lastName).equals(data.get("Student Name")));
-        softAssertions.assertThat(email.equals(data.get("Student Email")));
-        softAssertions.assertThat(gender.equals(data.get("Gender")));
-        softAssertions.assertThat(number.equals(data.get("Mobile")));
-        softAssertions.assertThat(new SimpleDateFormat("dd MMMM,yyyy", Locale.ENGLISH).format(birthday)
-                .equals(data.get("Date of Birth")));
-        softAssertions.assertThat(subject.equals(data.get("Subject")));
-        softAssertions.assertThat((hobby1 + ", " + hobby2).equals(data.get("Hobbies")));
-        softAssertions.assertThat("stitch.jpg".equals(data.get("Picture")));
-        softAssertions.assertThat(address.equals(data.get("Address")));
-        softAssertions.assertThat((state + " " + city).equals(data.get("State and City")));
+        $(".modal-dialog").should(Condition.appear);
+        $(".modal-title").shouldHave(Condition.text("Thanks for submitting the form"));
+        SelenideElement element = $(".table-responsive table");
+
+        element.$(byText("Student Name")).parent().shouldHave(Condition.text(firstName + " " + lastName));
+        element.$(byText("Student Email")).parent().shouldHave(Condition.text(email));
+        element.$(byText("Gender")).parent().shouldHave(Condition.text(gender));
+        element.$(byText("Mobile")).parent().shouldHave(Condition.text(number));
+        element.$(byText("Date of Birth")).parent()
+                .shouldHave(Condition.text(new SimpleDateFormat("dd MMMM,yyyy", Locale.ENGLISH).format(birthday)));
+        element.$(byText("Subjects")).parent().shouldHave(Condition.text(subject));
+        element.$(byText("Hobbies")).parent().shouldHave(Condition.text(hobby1 + ", " + hobby2));
+        element.$(byText("Picture")).parent().shouldHave(Condition.text("stitch.jpg"));
+        element.$(byText("Address")).parent().shouldHave(Condition.text(address));
+        element.$(byText("State and City")).parent().shouldHave(Condition.text(state + " " + city));
     }
 }
